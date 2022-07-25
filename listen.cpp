@@ -28,7 +28,7 @@ int main() {
     try {
         sock.connect("tcp://*:10210");
         //sock.bind("tcp://*:10210");
-        sock.set(zmq::sockopt::subscribe, "");
+        //sock.set(zmq::sockopt::subscribe, "");
     } catch (const zmq::error_t & ex) {
         std::cerr << ex.what() << std::endl;
     }
