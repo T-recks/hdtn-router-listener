@@ -27,7 +27,7 @@ int main() {
     zmq::socket_t sock(ctx, zmq::socket_type::sub);
     
     try {
-        sock.connect("tcp://*:10210");
+        sock.connect("tcp://localhost:10210");
         //sock.set(zmq::sockopt::subscribe, "");
         sock.setsockopt(ZMQ_SUBSCRIBE, "", std::strlen(""));
     } catch (const zmq::error_t & ex) {
@@ -40,32 +40,37 @@ int main() {
     std::cout << "waiting for a message..." << std::endl;
 
     while (true) {
-        int rc = zmq::poll(&items[0], 1, -1);
+        int rc = zmq::poll(&items[0], 1, 250);
+        //std::cout << "loop";
         assert(rc >= 0);
 
-        if (items[0].revents & ZMQ_POLLIN) { 
-            std::cout << "event from router" << std::endl;
+        if (rc > 0) {
+            std::cout << "new event" << std::endl;
 
-            if (!sock.recv(message, zmq::recv_flags::none)) {
-                std::cout << "no event for router" << std::endl;
-                return 1;
+            if (items[0].revents & ZMQ_POLLIN) { 
+                std::cout << "event from router" << std::endl;
+
+                if (!sock.recv(message, zmq::recv_flags::none)) {
+                    std::cout << "no event for router" << std::endl;
+                    return 1;
+                }
+
+                if (message.size() < sizeof(CommonHdr)) {
+                    std::cout << "unknown" << std::endl;
+                    return 1;
+                }
+
+                CommonHdr *common = (CommonHdr *)message.data();
+                if (common->type == 0xFC07) {
+                    std::cout << "route update" << std::endl;
+                    RouteUpdateHdr *update = (RouteUpdateHdr *)message.data();
+                    uint64_t node = update->nextHopEid.nodeId;
+                    std::cout << node << std::endl;
+                    return 0;
+                }
+
+                std::cout << "failed to do anything with event" << std::endl;
             }
-
-            if (message.size() < sizeof(CommonHdr)) {
-                std::cout << "unknown" << std::endl;
-                return 1;
-            }
-
-            CommonHdr *common = (CommonHdr *)message.data();
-            if (common->type == 0xFC07) {
-                std::cout << "route update" << std::endl;
-                RouteUpdateHdr *update = (RouteUpdateHdr *)message.data();
-                uint64_t node = update->nextHopEid.nodeId;
-                std::cout << node << std::endl;
-                return 0;
-            }
-
-           std::cout << "failed to do anything with event" << std::endl;
         }
     }
 
